@@ -1,0 +1,23 @@
+<idea-plugin url="https://github.com/MiracleCrane/idea-diff-line-stats" require-restart="true">
+  <id>dev.miraclecrane.diff-line-stats</id>
+  <name>Diff Line Stats</name>
+  <version>0.1.0</version>
+  <vendor url="https://github.com/MiracleCrane">MiracleCrane</vendor>
+  <description><![CDATA[
+    <p>Show per-file added and deleted line counts in the native Git diff tree, including Show Diff with Working Tree.
+    Counts follow the displayed comparison revisions and are calculated in the background.</p>
+    <p>Early preview tested on IntelliJ IDEA 2026.2.3. Binary, oversized and unavailable files show a status instead of counts.</p>
+    <p>
+    在原生 Git 差异文件列表后显示绿色 +新增、红色 −删除行数。
+    使用列表实际比较的两个版本，后台计算，支持新增、删除、重命名和方向交换。
+    当前适配 IntelliJ IDEA 2026.2；二进制、超大文件或读取失败会显示明确状态。</p>
+  ]]></description>
+  <change-notes>Initial open-source preview: native diff-tree line counts with background calculation.</change-notes>
+  <idea-version since-build="262.10968" until-build="262.*"/>
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.intellij.modules.vcs</depends>
+  <extensions defaultExtensionNs="com.intellij">
+    <postStartupActivity implementation="dev.miraclecrane.diffstats.StatsStartupActivity"/>
+    <projectService serviceImplementation="dev.miraclecrane.diffstats.StatsService"/>
+  </extensions>
+</idea-plugin>
