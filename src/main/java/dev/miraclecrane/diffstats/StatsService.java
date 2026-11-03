@@ -20,19 +20,20 @@ import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.AWTEventListener;
 import java.awt.event.ContainerEvent;
-import java.util.Collections;
+import java.lang.ref.WeakReference;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.swing.JTree;
+import java.util.function.Consumer;
 import javax.swing.Timer;
 
 /**
- * 管理项目内的后台统计与文件修改后的列表重绘。 两个后台任务并行，树用弱引用登记，关闭项目时释放监听器与队列。
+ * 管理项目内全部差异树的预加载与文件修改后的刷新。 两个后台任务并行，树用弱引用登记，关闭项目时释放监听器与队列。
  *
  * @author MiracleCrane
  * @version 2026-11-02
@@ -40,7 +41,7 @@ import javax.swing.Timer;
 public final class StatsService implements Disposable {
   private final Project project;
   private final ExecutorService executor;
-  private final Set<JTree> trees = Collections.newSetFromMap(new WeakHashMap<>());
+  private final Map<ChangesTree, WeakReference<StatsTreeState>> trees = new WeakHashMap<>();
   private final AtomicBoolean repaintQueued = new AtomicBoolean();
   private volatile boolean disposed;
   private final Set<EmptyProgressIndicator> active = ConcurrentHashMap.newKeySet();
@@ -114,7 +115,10 @@ public final class StatsService implements Disposable {
       return;
     }
     if (component instanceof ChangesTree tree && tree.getProject() == project) {
-      if (trees.add(tree)) {
+      WeakReference<StatsTreeState> tracked = trees.get(tree);
+      if (tracked == null || tracked.get() == null) {
+        // 模型会通过 Swing 监听器反向引用树，因此值也必须弱引用，避免弱键被间接保活。
+        trees.put(tree, new WeakReference<>(new StatsTreeState(project, tree)));
         tree.addPropertyChangeListener("cellRenderer", event -> wrap(tree));
       }
       wrap(tree);
@@ -136,7 +140,10 @@ public final class StatsService implements Disposable {
     if (!disposed
         && tree.getCellRenderer() != null
         && !(tree.getCellRenderer() instanceof StatsTreeRenderer)) {
-      tree.setCellRenderer(new StatsTreeRenderer(tree.getCellRenderer()));
+      StatsTreeState state = trees.get(tree).get();
+      if (state != null) {
+        tree.setCellRenderer(new StatsTreeRenderer(tree.getCellRenderer(), state));
+      }
     }
   }
 
@@ -179,7 +186,7 @@ public final class StatsService implements Disposable {
                       event -> {
                         repaintQueued.set(false);
                         if (!disposed) {
-                          trees.forEach(JTree::repaint);
+                          forEachTree(StatsTreeState::requestRefresh);
                         }
                       });
               timer.setRepeats(false);
@@ -187,11 +194,32 @@ public final class StatsService implements Disposable {
             });
   }
 
+  /**
+   * 在 EDT 上访问仍由界面持有的文件树状态。
+   *
+   * @param action 对每个有效状态执行的刷新或释放操作
+   */
+  private void forEachTree(Consumer<StatsTreeState> action) {
+    for (WeakReference<StatsTreeState> reference : trees.values()) {
+      StatsTreeState state = reference.get();
+      if (state != null) {
+        action.accept(state);
+      }
+    }
+  }
+
   /** 关闭项目时中止待执行任务；监听器由平台按 Disposable 关系移除。 */
   @Override
   public void dispose() {
     disposed = true;
     Toolkit.getDefaultToolkit().removeAWTEventListener(treeListener);
+    ApplicationManager.getApplication()
+        .invokeLater(
+            () -> {
+              forEachTree(StatsTreeState::dispose);
+              trees.clear();
+            },
+            ModalityState.any());
     active.forEach(EmptyProgressIndicator::cancel);
     executor.shutdownNow();
   }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 — 2026-11-03 (preview)
+
+- Keep line counts after file labels while calculating every file in the comparison up front.
+- Preload all files in the comparison when the tree loads or changes, including collapsed directories and off-screen rows.
+- Refresh cached statistics after edits, model replacement and incremental node changes without waiting for scrolling.
+- Retire outdated work and preserve native selection, checkboxes and directory grouping.
+
 ## 0.1.0 — 2026-11-02 (preview)
 
 - Add per-file added/deleted line counts to the native IDEA diff tree.

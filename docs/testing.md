@@ -1,5 +1,13 @@
 # Validation
 
+## 0.1.2 preloading regression — 2026-11-03
+
+Trailing counts are restored. The native integration suite verifies that all 120 files are read in the background while directories are collapsed and a plain renderer provides no statistics text component. No row is scrolled into view to trigger these reads. It also checks complete model replacement and inserting a file into an existing model, without re-reading already cached immutable revisions.
+
+Normal Git comparisons, reversed direction, unsaved edits, rebuilding, directory grouping, selection, checkboxes and trailing-label rendering remain covered. The tree cache observes model changes independently of rendering and does not strongly retain closed tree widgets through Swing model listeners.
+
+## 0.1.0 baseline
+
 Verified on 2026-11-02 using IntelliJ IDEA **2026.2.3 / IU-262.10968.63**, its bundled JBR, PowerShell 7, Git and Python 3 on Windows.
 
 ## Automated coverage

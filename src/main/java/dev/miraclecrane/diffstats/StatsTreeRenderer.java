@@ -6,29 +6,28 @@ import com.intellij.openapi.vcs.changes.ui.ChangesBrowserNodeRenderer;
 import com.intellij.openapi.vcs.changes.ui.ChangesTree;
 import java.awt.Component;
 import java.awt.Container;
-import java.util.IdentityHashMap;
-import java.util.Map;
 import javax.swing.JTree;
 import javax.swing.tree.TreeCellRenderer;
 
 /**
- * 保留原生渲染器及复选框，仅在原文字后追加统计。 缓存按节点身份隔离，重建模型后释放，不改变树模型、双击或选择行为。
+ * 保留原生渲染器及复选框，在文件标签后显示已经预加载的统计。 渲染过程不再负责建立缓存或启动后台读取，因此滚动不会触发逐行加载。
  *
  * @author MiracleCrane
  * @version 2026-11-02
  */
 final class StatsTreeRenderer implements TreeCellRenderer {
   private final TreeCellRenderer delegate;
-  private final Map<ChangesBrowserNode<?>, StatsEntry> entries = new IdentityHashMap<>();
-  private Object modelRoot;
+  private final StatsTreeState state;
 
   /**
    * 包装现有渲染器。
    *
    * @param delegate IDEA 当前使用的渲染器
+   * @param state 当前树独立于渲染的统计缓存
    */
-  StatsTreeRenderer(TreeCellRenderer delegate) {
+  StatsTreeRenderer(TreeCellRenderer delegate, StatsTreeState state) {
     this.delegate = delegate;
+    this.state = state;
   }
 
   /** {@inheritDoc} */
@@ -43,12 +42,7 @@ final class StatsTreeRenderer implements TreeCellRenderer {
       boolean focus) {
     Component component =
         delegate.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, focus);
-    Object root = tree.getModel().getRoot();
-    if (modelRoot != root) {
-      entries.clear();
-      modelRoot = root;
-    }
-    if (tree instanceof ChangesTree changesTree
+    if (tree instanceof ChangesTree
         && value instanceof ChangesBrowserNode<?> node
         && node.getUserObject() instanceof Change change) {
       var revision =
@@ -57,9 +51,7 @@ final class StatsTreeRenderer implements TreeCellRenderer {
               : change.getBeforeRevision();
       var renderer = textRenderer(component);
       if (renderer != null && revision != null && !revision.getFile().isDirectory()) {
-        entries
-            .computeIfAbsent(node, key -> new StatsEntry(changesTree.getProject(), change))
-            .decorate(tree, node, renderer);
+        state.decorate(node, renderer);
       }
     }
     return component;

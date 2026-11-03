@@ -24,6 +24,9 @@ if not (repo / '.git').exists():
     git('switch', '-c', 'feature')
     (repo / 'Modified.txt').write_text('same\nnew\nextra\n', encoding='utf8')
     (repo / 'Added.txt').write_text('one\ntwo\nthree\n', encoding='utf8')
+    nested = repo / 'deep/path'
+    nested.mkdir(parents=True)
+    (nested / 'VeryLongFileNameForCheckingStatisticsInNarrowPanels.txt').write_text('prefix visibility fixture\nunique new content\n', encoding='utf8')
     (repo / 'image.png').write_bytes(b'\x89PNG\r\n\x1a\n\x00binary')
     git('rm', 'Deleted.txt')
     git('mv', 'Rename.txt', 'Renamed.txt')

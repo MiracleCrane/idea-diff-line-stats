@@ -10,9 +10,11 @@ import com.intellij.openapi.vcs.ProjectLevelVcsManager;
 import com.intellij.openapi.vcs.VcsDirectoryMapping;
 import com.intellij.openapi.vcs.changes.Change;
 import com.intellij.openapi.vcs.changes.ui.ChangesBrowserNodeRenderer;
+import com.intellij.openapi.vcs.changes.ui.ChangesGroupingSupport;
 import com.intellij.openapi.vcs.changes.ui.ChangesTree;
 import com.intellij.openapi.vcs.changes.ui.SimpleChangesBrowser;
 import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.util.ui.ThreeStateCheckBox;
 import git4idea.changes.GitChangeUtils;
 import java.awt.Component;
 import java.awt.Container;
@@ -88,10 +90,12 @@ public final class IntegrationStarter implements ApplicationStarter {
     expect(labels, "Deleted.txt", "+0  −2");
     expect(labels, "image.png", "二进制");
     expect(labels, "Renamed.txt", "+0  −0");
+    expect(labels, "VeryLongFileNameForCheckingStatisticsInNarrowPanels.txt", "+2  −0");
     // 未打开编辑器的已保存文档是弱缓存；回收后统计仍必须稳定，不能永久停留在省略号。
     System.gc();
     Thread.sleep(200);
     expect(awaitLabels(tree), "Added.txt", "+3  −0");
+    checkRendererLayout(tree);
     render(tree, Path.of(System.getProperty("diffstats.test.image")));
     var swapped =
         changes.stream().map(c -> new Change(c.getAfterRevision(), c.getBeforeRevision())).toList();
@@ -109,7 +113,7 @@ public final class IntegrationStarter implements ApplicationStarter {
                       var document = FileDocumentManager.getInstance().getDocument(modified);
                       document.setText("same\nnew\nextra\nunsaved\n");
                     }));
-    Map<String, String> updated = awaitLabels(tree);
+    Map<String, String> updated = awaitLabels(tree, "Modified.txt", "+3  −1");
     System.out.println("UNSAVED " + updated);
     expect(updated, "Modified.txt", "+3  −1");
     Map<String, String> reopened =
@@ -128,6 +132,15 @@ public final class IntegrationStarter implements ApplicationStarter {
               }
             });
     System.out.println("PASS: native selection retained");
+    ApplicationManager.getApplication()
+        .invokeAndWait(
+            () ->
+                tree.getGroupingSupport()
+                    .setGroupingKeys(List.of(ChangesGroupingSupport.DIRECTORY_GROUPING)));
+    expect(awaitLabels(tree), "VeryLongFileNameForCheckingStatisticsInNarrowPanels.txt", "+2  −0");
+    checkRendererLayout(tree);
+    System.out.println("PASS: directory grouping and trailing statistics");
+    PreloadIntegrationChecks.run(project, rootPath);
   }
 
   /**
@@ -158,6 +171,20 @@ public final class IntegrationStarter implements ApplicationStarter {
    * @throws Exception 统计超时或渲染失败时抛出
    */
   private static Map<String, String> awaitLabels(ChangesTree tree) throws Exception {
+    return awaitLabels(tree, null, null);
+  }
+
+  /**
+   * 等待后台刷新后的具体值，覆盖文档事件合并期间仍保留上一结果的短暂状态。
+   *
+   * @param tree 原生树
+   * @param expectedFile 需要更新的文件，初次加载时允许为空
+   * @param expectedText 更新后的统计文字，初次加载时允许为空
+   * @return 全部就绪且满足更新条件的文字
+   * @throws Exception 刷新超时或平台调用失败时抛出
+   */
+  private static Map<String, String> awaitLabels(
+      ChangesTree tree, String expectedFile, String expectedText) throws Exception {
     for (int attempt = 0; attempt < 200; attempt++) {
       Map<String, String> labels = new LinkedHashMap<>();
       ApplicationManager.getApplication()
@@ -176,13 +203,16 @@ public final class IntegrationStarter implements ApplicationStarter {
                         change.getAfterRevision() != null
                             ? change.getAfterRevision()
                             : change.getBeforeRevision();
+                    var text = textRenderer(rendered);
                     labels.put(
-                        revision.getFile().getName(),
-                        textRenderer(rendered).getCharSequence(false).toString());
+                        revision.getFile().getName(), text.getCharSequence(false).toString());
                   }
                 }
               });
-      if (!labels.isEmpty() && labels.values().stream().noneMatch(s -> s.contains("…"))) {
+      if (!labels.isEmpty()
+          && labels.values().stream().noneMatch(s -> s.contains("…"))
+          && (expectedFile == null
+              || labels.getOrDefault(expectedFile, "").contains(expectedText))) {
         return labels;
       }
       if (attempt == 199) {
@@ -229,6 +259,92 @@ public final class IntegrationStarter implements ApplicationStarter {
   }
 
   /**
+   * 验证尾部统计、原生文本、选中状态、复选框和目录行的读屏状态。
+   *
+   * @param tree 已经加载统计的原生树
+   */
+  private static void checkRendererLayout(ChangesTree tree) {
+    ApplicationManager.getApplication()
+        .invokeAndWait(
+            () -> {
+              tree.setShowCheckboxes(true);
+              var cellRenderer = tree.getCellRenderer();
+              for (var node : tree.getRoot().traverse()) {
+                if (!(node.getUserObject() instanceof Change change)) {
+                  continue;
+                }
+                for (boolean selected : List.of(false, true)) {
+                  tree.includeChange(change);
+                  var component =
+                      cellRenderer.getTreeCellRendererComponent(
+                          tree, node, selected, true, true, 0, selected);
+                  var text = textRenderer(component);
+                  var revision =
+                      change.getAfterRevision() != null
+                          ? change.getAfterRevision()
+                          : change.getBeforeRevision();
+                  String nativeText = text.getCharSequence(false).toString();
+                  if (!nativeText.startsWith(revision.getFile().getName())) {
+                    throw new AssertionError(
+                        "Native filename or search text was changed: " + nativeText);
+                  }
+                  if (!nativeText.matches(".*(?:\\+\\d+  −\\d+|\\[二进制\\])$")) {
+                    throw new AssertionError("Missing trailing statistics: " + nativeText);
+                  }
+                  if (!text.getAccessibleContext()
+                      .getAccessibleName()
+                      .contains(revision.getFile().getName())) {
+                    throw new AssertionError("Screen reader cannot access statistics");
+                  }
+                  var checkBox = findCheckBox(component);
+                  if (checkBox == null
+                      || !checkBox.isVisible()
+                      || checkBox.getState() != ThreeStateCheckBox.State.SELECTED) {
+                    throw new AssertionError("Native checkbox lost its selected state");
+                  }
+                  tree.excludeChange(change);
+                  component =
+                      cellRenderer.getTreeCellRendererComponent(
+                          tree, node, selected, true, true, 0, selected);
+                  if (findCheckBox(component).getState() != ThreeStateCheckBox.State.NOT_SELECTED) {
+                    throw new AssertionError("Native checkbox cannot be cleared");
+                  }
+                }
+              }
+              var rootComponent =
+                  cellRenderer.getTreeCellRendererComponent(
+                      tree, tree.getRoot(), false, true, false, 0, false);
+              var rootText = textRenderer(rootComponent);
+              if (rootText.getCharSequence(false).toString().contains("−")) {
+                throw new AssertionError("Directory row inherited file statistics");
+              }
+            });
+    System.out.println(
+        "PASS: trailing statistics, native text, selection, checkboxes and accessibility");
+  }
+
+  /**
+   * 定位原生复合渲染器中负责包含/排除文件的复选框。
+   *
+   * @param component 原生渲染组件
+   * @return 原生三态复选框，缺失时返回空
+   */
+  private static ThreeStateCheckBox findCheckBox(Component component) {
+    if (component instanceof ThreeStateCheckBox checkBox) {
+      return checkBox;
+    }
+    if (component instanceof Container container) {
+      for (Component child : container.getComponents()) {
+        var checkBox = findCheckBox(child);
+        if (checkBox != null) {
+          return checkBox;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * 导出真实 Swing 文件树的绘制结果。
    *
    * @param tree 测试树
@@ -237,13 +353,13 @@ public final class IntegrationStarter implements ApplicationStarter {
    */
   private static void render(ChangesTree tree, Path target) throws Exception {
     Files.createDirectories(target.getParent());
-    BufferedImage image = new BufferedImage(920, 220, BufferedImage.TYPE_INT_RGB);
+    BufferedImage image = new BufferedImage(920, 260, BufferedImage.TYPE_INT_RGB);
     ApplicationManager.getApplication()
         .invokeAndWait(
             () -> {
               var graphics = image.createGraphics();
               graphics.setColor(java.awt.Color.WHITE);
-              graphics.fillRect(0, 0, 920, 220);
+              graphics.fillRect(0, 0, 920, 260);
               int row = 0;
               for (var node : tree.getRoot().traverse()) {
                 if (node.getUserObject() instanceof Change) {

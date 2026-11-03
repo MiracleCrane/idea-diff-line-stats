@@ -9,16 +9,13 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vcs.changes.Change;
 import com.intellij.openapi.vcs.changes.ContentRevision;
 import com.intellij.openapi.vcs.changes.CurrentContentRevision;
-import com.intellij.openapi.vcs.changes.ui.ChangesBrowserNode;
 import com.intellij.openapi.vcs.changes.ui.ChangesBrowserNodeRenderer;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.SimpleTextAttributes;
-import javax.swing.JTree;
-import javax.swing.tree.DefaultTreeModel;
 
 /**
- * 在原生变更节点文字后绘制异步统计。 每个节点对应唯一的左右版本；本地文档变化时失效，旧任务结果不覆盖新版本。
+ * 保存单个变更的后台统计，并在文件标签后展示结果。 计算由整棵树的预加载流程触发；渲染只读缓存，节点失效后取消过期任务的发布。
  *
  * @author MiracleCrane
  * @version 2026-11-02
@@ -34,6 +31,7 @@ public final class StatsEntry {
   private LineStats result;
   private String resultStamp;
   private boolean pending;
+  private volatile boolean retired;
 
   /**
    * 保存当前节点对应的比较对象。
@@ -47,15 +45,12 @@ public final class StatsEntry {
   }
 
   /**
-   * 渲染已缓存的统计，内容读取与计算均在后台进行。
+   * 检查缓存并为新内容启动后台任务，不要求节点已出现在视口中。
    *
-   * @param tree 当前文件树
-   * @param node 原生节点
-   * @param renderer 原生文字渲染器
+   * @param updated 结果发布后在 EDT 上通知所属树
    */
-  public void decorate(
-      JTree tree, ChangesBrowserNode<?> node, ChangesBrowserNodeRenderer renderer) {
-    if (project.isDisposed()) {
+  void refresh(Runnable updated) {
+    if (retired || project.isDisposed()) {
       return;
     }
     StatsService service = project.getService(StatsService.class);
@@ -64,14 +59,22 @@ public final class StatsEntry {
       result = null;
       if (!pending) {
         pending = true;
-        service.execute(() -> compute(tree, node, stamp));
+        service.execute(() -> compute(stamp, updated));
       }
     }
+  }
+
+  /**
+   * 在原生文件标签后追加缓存的统计，不启动读取或计算。
+   *
+   * @param renderer 已完成原生绘制的文字组件
+   */
+  void decorate(ChangesBrowserNodeRenderer renderer) {
     if (result == null) {
-      renderer.append("  …", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+      renderer.append("  …", SimpleTextAttributes.GRAYED_ATTRIBUTES, false);
     } else if (result.status() == LineStats.Status.READY) {
-      renderer.append("  +" + result.added(), ADDED);
-      renderer.append("  −" + result.deleted(), DELETED);
+      renderer.append("  +" + result.added(), ADDED, false);
+      renderer.append("  −" + result.deleted(), DELETED, false);
     } else {
       String label =
           switch (result.status()) {
@@ -79,19 +82,33 @@ public final class StatsEntry {
             case TOO_LARGE -> "超大文件";
             default -> "统计不可用";
           };
-      renderer.append("  [" + label + "]", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+      renderer.append("  [" + label + "]", SimpleTextAttributes.GRAYED_ATTRIBUTES, false);
     }
+  }
+
+  /**
+   * 判断原生节点是否仍引用相同比较对象。
+   *
+   * @param candidate 节点当前承载的变更
+   * @return 是否可以继续使用本缓存
+   */
+  boolean matches(Change candidate) {
+    return change == candidate;
+  }
+
+  /** 标记已经移除或替换的节点，排队任务会跳过，正在计算的结果不再发布。 */
+  void retire() {
+    retired = true;
   }
 
   /**
    * 在后台读取版本，回到 EDT 后核验节点及版本仍有效。
    *
-   * @param tree 触发计算的文件树
-   * @param node 触发计算的原生节点
    * @param stamp 任务排队时的本地内容版本
+   * @param updated 结果发布后的界面通知
    */
-  private void compute(JTree tree, ChangesBrowserNode<?> node, String stamp) {
-    if (project.isDisposed()) {
+  private void compute(String stamp, Runnable updated) {
+    if (retired || project.isDisposed()) {
       return;
     }
     LineStats computed;
@@ -108,18 +125,17 @@ public final class StatsEntry {
         .invokeLater(
             () -> {
               pending = false;
-              if (project.isDisposed() || tree.getModel().getRoot() != node.getRoot()) {
+              if (retired || project.isDisposed()) {
                 return;
               }
-              // 输入变化则舍弃旧结果，下次渲染启动新任务，避免快速连续编辑显示旧数字。
+              // 输入变化则直接重新排队，无需等待此文件再次滚入可见区域。
               if (stamp.equals(currentStamp())) {
                 resultStamp = stamp;
                 result = completed;
+              } else {
+                refresh(updated);
               }
-              if (tree.getModel() instanceof DefaultTreeModel model) {
-                model.nodeChanged(node);
-              }
-              tree.repaint();
+              updated.run();
             },
             ModalityState.any());
   }

@@ -1,6 +1,6 @@
 # Diff Line Stats
 
-[English](README.md) · [下载安装包](https://github.com/MiracleCrane/idea-diff-line-stats/releases/tag/v0.1.0) · [MIT 许可证](LICENSE)
+[English](README.md) · [下载安装包](https://github.com/MiracleCrane/idea-diff-line-stats/releases/tag/v0.1.2) · [MIT 许可证](LICENSE)
 
 在 IntelliJ IDEA **原生 Diff 文件列表**中，为每个文件显示绿色 `+新增行数`、红色 `−删除行数`。支持“与工作树比较 / Show Diff with Working Tree”，无需打开额外窗口。
 
@@ -10,13 +10,15 @@
 
 ## 当前状态
 
-**v0.1.0 为早期预览版。** 已在 Windows 上使用 **IntelliJ IDEA 2026.2.3 / IU-262.10968.63** 验证。安装包允许 `262.10968` 至 `262.*`；该范围内的其他版本尚未逐一测试。其他大版本和远程开发模式未验证。
+**0.1.2** 在打开或更新列表时后台预加载所有文件，包括折叠目录和屏幕外的行，不再等滚动才逐行计算。行数显示在文件标签后面。
+
+**v0.1.2 为早期预览版。** 已在 Windows 上使用 **IntelliJ IDEA 2026.2.3 / IU-262.10968.63** 验证。安装包允许 `262.10968` 至 `262.*`；该范围内的其他版本尚未逐一测试。其他大版本和远程开发模式未验证。
 
 插件使用 IDEA 的 Swing 变更树实现，IDEA 更新后可能需要适配。当前未上架 JetBrains 插件市场，也尚未完成独立 Plugin Verifier 检查。
 
 ## 安装
 
-1. 从 [Release 页面](https://github.com/MiracleCrane/idea-diff-line-stats/releases/tag/v0.1.0) 下载 **`diff-line-stats-0.1.0.zip`**。GitHub 自动提供的 Source code 压缩包是源码，不能作为插件安装。
+1. 从 [Release 页面](https://github.com/MiracleCrane/idea-diff-line-stats/releases/tag/v0.1.2) 下载 **`diff-line-stats-0.1.2.zip`**。GitHub 自动提供的 Source code 压缩包是源码，不能作为插件安装。
 2. IDEA → **设置 → 插件 → 齿轮 → 从磁盘安装插件**。
 3. 选择 ZIP，不用解压，安装后重启 IDEA。
 4. 打开分支菜单的 **Show Diff with Working Tree / 与工作树比较**，后台统计完成后显示数字。
@@ -44,7 +46,7 @@ pwsh -File .\build.ps1 -IdeaHome 'C:\path\to\IntelliJ IDEA 2026.2'
 pwsh -File .\test.ps1 -IdeaHome 'C:\path\to\IntelliJ IDEA 2026.2'
 ```
 
-安装包输出在 `build/diff-line-stats-0.1.0.zip`。可用 `-BuildDirectory` 将生成文件放到仓库外。测试使用独立 Git 仓库及 IDEA 配置、缓存、插件目录，不复用个人账户或许可证数据。
+安装包输出在 `build/diff-line-stats-0.1.2.zip`。可用 `-BuildDirectory` 将生成文件放到仓库外。测试使用独立 Git 仓库及 IDEA 配置、缓存、插件目录，不复用个人账户或许可证数据。
 
 验证范围见 [测试说明](docs/testing.md)。Java 源码采用 Google Java Format 1.32.0，GOOGLE 风格。
 
