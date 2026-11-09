@@ -4,12 +4,14 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $product = Get-Content -LiteralPath (Join-Path $IdeaHome 'product-info.json') -Raw | ConvertFrom-Json
-if ($product.buildNumber -notlike '262.*') { throw 'This plugin targets IntelliJ Platform 262 (2026.2).' }
+if ($product.buildNumber -notlike '263.*') { throw 'This plugin targets IntelliJ Platform 263 (2026.3).' }
 $javaBin = Join-Path $IdeaHome 'jbr\bin'
 $classes = Join-Path $BuildDirectory ('classes-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $classes | Out-Null
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src\main\java') -Recurse -Filter '*.java' | ForEach-Object FullName)
-& (Join-Path $javaBin 'javac.exe') --release 21 -encoding UTF-8 -classpath (Join-Path $IdeaHome 'lib\*') -d $classes @sources
+# Platform 263 ships the VCS API and implementation in a separate bundled plugin.
+$classPath = (Join-Path $IdeaHome 'lib\*') + ';' + (Join-Path $IdeaHome 'plugins\platform-vcs-plugin\lib\*') + ';' + (Join-Path $IdeaHome 'plugins\platform-vcs-plugin\lib\modules\*')
+& (Join-Path $javaBin 'javac.exe') --release 21 -encoding UTF-8 -classpath $classPath -d $classes @sources
 if ($LASTEXITCODE -ne 0) { throw 'Compilation failed' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'src\main\resources\META-INF') -Destination $classes -Recurse -Force
 $pluginRoot = Join-Path $BuildDirectory 'package\diff-line-stats'

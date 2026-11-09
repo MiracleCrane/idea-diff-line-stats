@@ -40,14 +40,14 @@ testlib.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(testlib / 'integration-test.jar', 'w', zipfile.ZIP_DEFLATED) as z:
     z.writestr('META-INF/plugin.xml', '''<idea-plugin>
 <id>dev.miraclecrane.diffstats.tests</id><name>Diff Stats Integration Tests</name><version>1</version>
-<vendor>Local Test</vendor><idea-version since-build="262" until-build="262.*"/>
+<vendor>Local Test</vendor><idea-version since-build="263.7307" until-build="263.*"/>
 <depends>dev.miraclecrane.diff-line-stats</depends><depends>Git4Idea</depends>
 <extensions defaultExtensionNs="com.intellij"><appStarter id="diffStatsTest" implementation="dev.miraclecrane.diffstats.IntegrationStarter"/></extensions>
 </idea-plugin>''')
     for p in (base / 'test-classes').rglob('*.class'):
         z.write(p, p.relative_to(base / 'test-classes').as_posix())
 launch = json.loads((ide / 'product-info.json').read_text())['launch'][0]
-args = ['-Xmx1500m', '-Djava.awt.headless=true', '-Didea.is.internal=true', '-Didea.platform.prefix=Idea',
+args = ['-Xmx1500m', '-Djava.awt.headless=true', '-Didea.is.internal=true',
         '-Didea.home.path=' + str(ide), '-Didea.config.path=' + str(sandbox / 'config'),
         '-Didea.system.path=' + str(sandbox / 'system'), '-Didea.plugins.path=' + str(plugins),
         '-Didea.log.path=' + str(sandbox / 'log'), '-Didea.trust.all.projects=true',

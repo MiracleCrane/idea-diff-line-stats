@@ -1,5 +1,13 @@
 # Validation
 
+## 0.1.3 platform compatibility — 2026-11-09
+
+Verified against IntelliJ IDEA **2026.3 / IU-263.7307.200** on Windows. The 263 distribution extracts VCS APIs into the bundled Version Control plugin; both the descriptor dependency and compiler/test classpaths now reference it. The isolated launcher uses the default application-info resource instead of the removed Idea-prefixed resource.
+
+All 14 text-boundary checks and the native IDEA integration suite pass, including forward/reversed Git comparisons, unsaved edits, rebuilt trees, directory grouping, checkboxes, accessibility and background preloading of 120 collapsed/off-screen files. Model replacement and incremental insertion remain covered.
+
+This release targets platform 263 only. The previous 0.1.2 artifact remains the release for platform 262.
+
 ## 0.1.2 preloading regression — 2026-11-03
 
 Trailing counts are restored. The native integration suite verifies that all 120 files are read in the background while directories are collapsed and a plain renderer provides no statistics text component. No row is scrolled into view to trigger these reads. It also checks complete model replacement and inserting a file into an existing model, without re-reading already cached immutable revisions.

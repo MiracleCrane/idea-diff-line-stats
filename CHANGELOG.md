@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3 — 2026-11-09 (preview)
+
+- Support IntelliJ IDEA 2026.3 / IU-263.7307.200.
+- Declare the extracted Version Control plugin dependency and compile against its VCS modules.
+- Update the isolated test launcher for the 263 application-info resource layout.
+- Retain trailing statistics, unsaved-edit refresh and full-tree background preloading; verify all existing regressions on 263.
+- Target builds `263.7307` through `263.*`; keep v0.1.2 available for 2026.2.
+
 ## 0.1.2 — 2026-11-03 (preview)
 
 - Keep line counts after file labels while calculating every file in the comparison up front.

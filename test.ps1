@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $javaBin = Join-Path $IdeaHome 'jbr\bin'
 $testClasses = Join-Path $BuildDirectory 'test-classes'
 $pluginLib = Join-Path $BuildDirectory 'package\diff-line-stats\lib\*'
-$classPath = (Join-Path $IdeaHome 'lib\*') + ';' + (Join-Path $IdeaHome 'plugins\vcs-git\lib\*') + ';' + $pluginLib
+$classPath = (Join-Path $IdeaHome 'lib\*') + ';' + (Join-Path $IdeaHome 'plugins\platform-vcs-plugin\lib\*') + ';' + (Join-Path $IdeaHome 'plugins\platform-vcs-plugin\lib\modules\*') + ';' + (Join-Path $IdeaHome 'plugins\vcs-git\lib\*') + ';' + (Join-Path $IdeaHome 'plugins\vcs-git\lib\modules\*') + ';' + $pluginLib
 $tests = @((Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src\test\java') -Recurse -Filter '*.java').FullName)
 & (Join-Path $javaBin 'javac.exe') --release 21 -encoding UTF-8 -classpath $classPath -d $testClasses @tests
 if ($LASTEXITCODE -ne 0) { throw 'Test compilation failed' }
