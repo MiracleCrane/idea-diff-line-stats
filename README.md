@@ -25,6 +25,21 @@ The plugin integrates with the platform's Swing changes-tree implementation. Fut
 
 There is no additional sidebar button or tool window. To uninstall, remove **Diff Line Stats** from **Settings → Plugins → Installed**, then restart IDEA.
 
+## Automatic updates
+
+Updates are distributed through a GitHub custom plugin repository. Do not select JetBrains Marketplace as this plugin's update source.
+
+1. Open **Settings → Plugins → gear icon → Manage Plugin Repositories** and add:
+
+   ```text
+   https://raw.githubusercontent.com/MiracleCrane/idea-diff-line-stats/updates/updatePlugins.xml
+   ```
+
+2. Select **Diff Line Stats → Additional Info → Updates from** (or the link to choose an update source) and choose that repository.
+3. IDEA checks this repository for compatible versions. Automatic installation follows the IDE's existing automatic plugin update setting.
+
+This feed targets IDEA 2026.3. For each release, maintainers must upload the ZIP to GitHub Releases, then update the version, download URL and compatibility range in `updatePlugins.xml` and push it to the persistent `updates` branch. Creating a Release alone does not update this index. Each plugin ID may appear only once per index.
+
 ## Counting behavior
 
 - Uses the before/after revisions of each displayed change. Swapping the comparison sides swaps additions and deletions.

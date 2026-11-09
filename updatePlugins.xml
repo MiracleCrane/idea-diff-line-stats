@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugins>
+  <plugin id="dev.miraclecrane.diff-line-stats"
+          url="https://github.com/MiracleCrane/idea-diff-line-stats/releases/download/v0.1.3/diff-line-stats-0.1.3.zip"
+          version="0.1.3">
+    <idea-version since-build="263.7307" until-build="263.*"/>
+    <name>Diff Line Stats</name>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.platform.vcs</depends>
+  </plugin>
+</plugins>

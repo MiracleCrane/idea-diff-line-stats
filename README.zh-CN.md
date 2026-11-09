@@ -25,6 +25,21 @@
 
 插件没有独立侧边栏图标。卸载时在“插件 → 已安装”中移除 Diff Line Stats，并重启 IDEA。
 
+## 自动更新
+
+本项目通过 GitHub 自定义插件仓库分发更新，无需选择 JetBrains Marketplace。
+
+1. IDEA → **设置 → 插件 → 齿轮 → 管理插件仓库**，添加以下地址：
+
+   ```text
+   https://raw.githubusercontent.com/MiracleCrane/idea-diff-line-stats/updates/updatePlugins.xml
+   ```
+
+2. 选中 **Diff Line Stats → 其他信息 → 更新来源**（或点击“选择从何处获取更新”），选择上述仓库。
+3. IDEA 会从该仓库检查兼容版本；是否自动安装沿用 IDE 的“自动更新插件”设置。
+
+此更新源面向 IDEA 2026.3。发布新版时，维护者须在安装包上传到 GitHub Release 后，同步更新 `updatePlugins.xml` 的版本、下载地址和兼容范围，并推送到长期保留的 `updates` 分支。仅创建 Release 不会更新此索引；同一索引中插件 ID 只能出现一次。
+
 ## 统计规则
 
 - 读取当前列表每项变更的 before/after 版本，交换方向后新增和删除随之交换。
